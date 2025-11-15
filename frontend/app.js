@@ -1,16 +1,32 @@
-const API = "https://blog-project-jlas.vercel.app/";
+// ------------------ CONFIG ------------------
+const API = window.location.hostname.includes("localhost")
+    ? "http://localhost:5000/api"    // local backend
+    : "https://blog-project-backend.vercel.app/api";  // deployed backend
+
 let token = localStorage.getItem("token");
 let selectedPostId = null;
 
-/* ------------------ DARK MODE LOGIC ------------------ */
+// ------------------ DARK MODE ------------------
 document.addEventListener("DOMContentLoaded", () => {
     if (localStorage.getItem("theme") === "dark") {
         document.body.classList.add("dark");
     }
+
+    // Protect dashboard
+    if (window.location.pathname.includes("dashboard.html") && !token) {
+        window.location.href = "login.html";
+    }
+
     if (window.location.pathname.includes("dashboard.html")) {
-        if (!token) window.location.href = "login.html";
         loadPosts();
     }
+
+    // Attach event listeners for buttons
+    const registerBtn = document.getElementById("registerBtn");
+    if (registerBtn) registerBtn.addEventListener("click", registerUser);
+
+    const loginBtn = document.getElementById("loginBtn");
+    if (loginBtn) loginBtn.addEventListener("click", loginUser);
 });
 
 function toggleDarkMode() {
@@ -20,7 +36,7 @@ function toggleDarkMode() {
     );
 }
 
-/* ------------------ REGISTER ------------------ */
+// ------------------ REGISTER ------------------
 async function registerUser() {
     const body = {
         username: document.getElementById("reg-username").value,
@@ -28,82 +44,101 @@ async function registerUser() {
         password: document.getElementById("reg-password").value
     };
 
-    let res = await fetch(`${API}/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-    });
+    try {
+        let res = await fetch(`${API}/auth/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        });
 
-    let data = await res.json();
+        let data = await res.json();
 
-    if (data.token) {
-        alert("Registration successful! Login now.");
-        window.location.href = "login.html";
-    } else {
-        alert("Registration failed");
+        if (data.token) {
+            alert("Registration successful! Login now.");
+            window.location.href = "login.html";
+        } else {
+            alert(data.message || "Registration failed");
+        }
+    } catch (err) {
+        alert("Error connecting to server");
+        console.error(err);
     }
 }
 
-/* ------------------ LOGIN ------------------ */
+// ------------------ LOGIN ------------------
 async function loginUser() {
     const body = {
         email: document.getElementById("log-email").value,
         password: document.getElementById("log-password").value
     };
 
-    let res = await fetch(`${API}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-    });
+    try {
+        let res = await fetch(`${API}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        });
 
-    let data = await res.json();
+        let data = await res.json();
 
-    if (data.token) {
-        localStorage.setItem("token", data.token);
-        window.location.href = "dashboard.html";
-    } else {
-        alert("Login failed");
+        if (data.token) {
+            localStorage.setItem("token", data.token);
+            window.location.href = "dashboard.html";
+        } else {
+            alert(data.message || "Login failed");
+        }
+    } catch (err) {
+        alert("Error connecting to server");
+        console.error(err);
     }
 }
 
-/* ------------------ CREATE POST ------------------ */
+// ------------------ CREATE POST ------------------
 async function createPost() {
     const body = {
         title: document.getElementById("post-title").value,
         content: document.getElementById("post-content").value
     };
 
-    await fetch(`${API}/posts`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify(body)
-    });
+    try {
+        await fetch(`${API}/posts`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify(body)
+        });
 
-    loadPosts();
+        loadPosts();
+    } catch (err) {
+        alert("Error creating post");
+        console.error(err);
+    }
 }
 
-/* ------------------ LOAD POSTS ------------------ */
+// ------------------ LOAD POSTS ------------------
 async function loadPosts() {
-    let res = await fetch(`${API}/posts`);
-    let posts = await res.json();
+    try {
+        let res = await fetch(`${API}/posts`);
+        let posts = await res.json();
 
-    const container = document.getElementById("posts-list");
-    container.innerHTML = "";
+        const container = document.getElementById("posts-list");
+        container.innerHTML = "";
 
-    posts.forEach(post => {
-        const div = document.createElement("div");
-        div.className = "post-item";
-        div.innerHTML = `<strong>${post.title}</strong><br>${post.content.substring(0,60)}...`;
-        div.onclick = () => openPost(post);
-        container.appendChild(div);
-    });
+        posts.forEach(post => {
+            const div = document.createElement("div");
+            div.className = "post-item";
+            div.innerHTML = `<strong>${post.title}</strong><br>${post.content.substring(0,60)}...`;
+            div.onclick = () => openPost(post);
+            container.appendChild(div);
+        });
+    } catch (err) {
+        console.error(err);
+    }
 }
 
-/* ------------------ OPEN POST ------------------ */
+// ------------------ OPEN POST ------------------
 function openPost(post) {
     selectedPostId = post._id;
 
@@ -114,42 +149,51 @@ function openPost(post) {
     loadComments();
 }
 
-/* ------------------ CLOSE POST ------------------ */
+// ------------------ CLOSE POST ------------------
 function closePost() {
     document.getElementById("single-post-section").classList.add("hidden");
 }
 
-/* ------------------ DELETE POST ------------------ */
+// ------------------ DELETE POST ------------------
 async function deletePost() {
     if (!confirm("Are you sure you want to delete this post?")) return;
 
-    await fetch(`${API}/posts/${selectedPostId}`, {
-        method: "DELETE",
-        headers: {
-            "Authorization": `Bearer ${token}`
-        }
-    });
+    try {
+        await fetch(`${API}/posts/${selectedPostId}`, {
+            method: "DELETE",
+            headers: {
+                "Authorization": `Bearer ${token}`
+            }
+        });
 
-    alert("Post deleted!");
-    selectedPostId = null;
-    closePost();
-    loadPosts();
+        alert("Post deleted!");
+        selectedPostId = null;
+        closePost();
+        loadPosts();
+    } catch (err) {
+        alert("Error deleting post");
+        console.error(err);
+    }
 }
 
-/* ------------------ COMMENTS ------------------ */
+// ------------------ COMMENTS ------------------
 async function loadComments() {
-    let res = await fetch(`${API}/comments?postId=${selectedPostId}`);
-    let comments = await res.json();
+    try {
+        let res = await fetch(`${API}/comments?postId=${selectedPostId}`);
+        let comments = await res.json();
 
-    const box = document.getElementById("comment-list");
-    box.innerHTML = "";
+        const box = document.getElementById("comment-list");
+        box.innerHTML = "";
 
-    comments.forEach(c => {
-        const div = document.createElement("div");
-        div.className = "comment-item";
-        div.innerHTML = `<strong>${c.author?.username || "User"}:</strong> ${c.content}`;
-        box.appendChild(div);
-    });
+        comments.forEach(c => {
+            const div = document.createElement("div");
+            div.className = "comment-item";
+            div.innerHTML = `<strong>${c.author?.username || "User"}:</strong> ${c.content}`;
+            box.appendChild(div);
+        });
+    } catch (err) {
+        console.error(err);
+    }
 }
 
 async function addComment() {
@@ -158,20 +202,25 @@ async function addComment() {
         content: document.getElementById("comment-input").value
     };
 
-    await fetch(`${API}/comments`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify(body)
-    });
+    try {
+        await fetch(`${API}/comments`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify(body)
+        });
 
-    document.getElementById("comment-input").value = "";
-    loadComments();
+        document.getElementById("comment-input").value = "";
+        loadComments();
+    } catch (err) {
+        alert("Error adding comment");
+        console.error(err);
+    }
 }
 
-/* ------------------ LOGOUT ------------------ */
+// ------------------ LOGOUT ------------------
 function logout() {
     localStorage.removeItem("token");
     window.location.href = "login.html";
