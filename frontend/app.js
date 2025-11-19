@@ -1,7 +1,6 @@
 // ------------------ CONFIG ------------------
-const API = window.location.hostname.includes("localhost")
-    ? "http://localhost:5000/api"    // local backend
-    : "https://blog-project-backend.vercel.app/api";  // deployed backend
+const API = "http://localhost:5000/api";
+ // deployed backend
 
 let token = localStorage.getItem("token");
 let selectedPostId = null;
